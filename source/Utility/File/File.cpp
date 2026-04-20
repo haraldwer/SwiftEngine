@@ -9,11 +9,8 @@ void Utility::File::SetWorkingDir()
 #ifndef EMSCRIPTEN
     std::filesystem::path curr = std::filesystem::current_path();
     while (!curr.string().ends_with("Engine") && !curr.empty() && curr != "/")
-    {
-        String file = curr.filename().string();
         curr = curr.parent_path();
-    }
-    const std::filesystem::path newDir = curr.concat("/content");
+    const std::filesystem::path newDir = curr.concat("/../Game/content");
     LOG("Setting working directory to \"" + newDir.string() + "\"");
     std::filesystem::current_path(newDir);
 #endif

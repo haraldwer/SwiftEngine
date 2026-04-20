@@ -93,7 +93,6 @@ void Editor::AssetBrowser::UpdateCache(const std::filesystem::path& InPath, Node
 #ifndef EMSCRIPTEN
     PROFILE();
     
-    LOG("Cache path: ", InPath.string());
     InNode.path = InPath;
     InNode.name = Utility::StringRemove(InPath.filename().string(), InPath.extension().string());
     InNode.ext = InPath.extension().string();

@@ -6,11 +6,9 @@
 #include "Blueprints/Blueprint.h"
 #include "ECS/Registration.h"
 #include "ECS/Systems/Attributes.h"
-#include "ECS/Systems/Environment.h"
 #include "ECS/Systems/Transform.h"
-#include "Game/ECS/Registration.h"
 #include "Instance/InstanceManager.h"
-#include "Game/Instances/GameInstance.h"
+#include "Instances/GameInstance.h"
 
 void Editor::BlueprintEditor::Init()
 {

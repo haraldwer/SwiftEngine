@@ -4,11 +4,17 @@ cmake_policy(SET CMP0169 OLD)
 
 project(Engine VERSION 0.1.0 LANGUAGES CXX C)
 
+set(GAME_PATH ${CMAKE_SOURCE_DIR}/../Game)
+set(GAME_SRC ${GAME_PATH}/source)
+set(GAME_CONTENT ${GAME_PATH}/content)
+message("-- Game Path: " ${GAME_PATH})
+
 include(cmake/CMakeOptions.cmake)
 include(cmake/Platform.cmake)
 include(cmake/Retail.cmake)
 include(cmake/SharedCompileOptions.cmake)
 
+# Dependencies
 set(DEP_INCLUDES "")
 set(DEPENDENCY_DIR cmake/Dependencies)
 include(${DEPENDENCY_DIR}/FastNoiseLite.cmake)

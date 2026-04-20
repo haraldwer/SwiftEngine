@@ -1,4 +1,4 @@
-#include "Registration.h"
+#include "Reg.h"
 
 #include "Engine/ECS/Systems/Attributes.h"
 #include "Engine/ECS/Systems/Camera.h"

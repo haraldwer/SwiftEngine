@@ -2,16 +2,19 @@
 
 #include "ImGui/imgui.h"
 #include "../Utility/EditorFunctions.h"
+#include "ECS/Manager.h"
 
 void Editor::Inspector::DrawPanel()
 {
+    CHECK_RETURN(!ECS::Manager::TryGet());
+    
     auto prevSceneSelected = selected;
     EditScene(selected);
     if (selected != prevSceneSelected)
         hierarchySelected = selected;
 
     if (ImGui::Begin("Entity"))
-        EditHierarchy(selected, hierarchySelected);
+        EditHierarchy(selected, hierarchySelected); 
     ImGui::End();
 
     if (ImGui::Begin("Components"))

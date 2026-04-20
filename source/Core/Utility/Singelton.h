@@ -36,6 +36,13 @@ namespace Utility
             return *reinterpret_cast<T*>(ptr);
         }
         
+        static T* TryGet()
+        {
+            Singelton*& ptr = Global ?
+                instance : contextInstance[SingeltonContext::value];
+            return ptr ? reinterpret_cast<T*>(ptr) : nullptr;
+        }
+        
         inline static Singelton* instance = nullptr;
         inline static Map<int, Singelton*> contextInstance;
     };
