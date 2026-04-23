@@ -1,18 +1,52 @@
 #pragma once
 
 #include "ModelLoader.h"
-#include "tiny_obj_loader.h"
 
-struct OBJModelLoadResult
+#define TINYGLTF3_IMPLEMENTATION
+#define TINYGLTF3_ENABLE_FS          // enable file I/O
+#define TINYGLTF3_ENABLE_STB_IMAGE   // enable image decoding
+
+#include "tiny_gltf_v3.h"
+
+struct GLTFModel
 {
-    ObjectPtr<tinyobj::ObjReader> reader;
+    GLTFModel(tg3_model* InPtr) : ptr(InPtr) {}
+    ~GLTFModel()
+    {
+        delete ptr;
+        ptr = nullptr;
+    }
+    
+    tg3_model* ptr = nullptr;
+};
+
+struct GLTFModelLoadResult
+{
+    ObjectPtr<GLTFModel> reader;
     bool success = false;
 };
 
-inline OBJModelLoadResult AsyncLoadModel(const Resource::ID& InID)
+inline GLTFModelLoadResult AsyncLoadModel(const Resource::ID& InID)
 {
     LOG("Loading model")
-    OBJModelLoadResult result;
+    GLTFModelLoadResult result;
+    
+    
+    tg3_parse_options opts 
+    tg3_load_options opts = tg3_load_options_default();
+    tg3_error_stack_t errors = {0};
+    tg3_model_t *model = tg3_load_from_file("scene.gltf", &opts, &errors);
+    if (!model) {
+        for (int i = 0; i < errors.count; i++)
+            fprintf(stderr, "[%s] %s\n", tg3_severity_str(errors.items[i].severity),
+                    errors.items[i].message);
+    }
+    
+    
+    
+    
+    
+    
     result.reader = new tinyobj::ObjReader();
     auto ptr = result.reader.Get();
     tinyobj::ObjReaderConfig config;
@@ -22,14 +56,14 @@ inline OBJModelLoadResult AsyncLoadModel(const Resource::ID& InID)
     return result;
 }
 
-struct ObjMeshLoadParams
+struct GLTFMeshLoadParams
 {
-    ObjectPtr<tinyobj::ObjReader> reader;
+    ObjectPtr<tg3_model> reader;
     Resource::ID id;
     int shapeIndex = 0;
 };
 
-inline ObjectPtr<MeshData> AsyncLoadMesh(const ObjMeshLoadParams& InParams)
+inline ObjectPtr<MeshData> AsyncLoadMesh(const GLTFMeshLoadParams& InParams)
 {
     auto& shapes = InParams.reader->GetShapes();
     const auto& shapeMesh = shapes.at(InParams.shapeIndex).mesh;

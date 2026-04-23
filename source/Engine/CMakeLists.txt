@@ -11,4 +11,5 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     Rendering
     Audio
     reactphysics3d
+    harfbuzz
 )

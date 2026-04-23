@@ -1,6 +1,8 @@
 #include "PropertyBase.h"
 #include "PropertyOwner.h"
 
+#include <filesystem>
+
 bool PropertyOwnerBase::AddProperty(PropertyBase* InProperty)
 {
     CHECK_RETURN(!instance, false);
@@ -90,6 +92,7 @@ bool PropertyOwnerBase::Save(const String& InPath) const
 
 bool PropertyOwnerBase::Load(const String& InPath)
 {
+    LOG(std::filesystem::current_path().string());
     CHECK_RETURN_LOG(!Utility::File::Exists(InPath), "File does not exist: " + InPath, false)
     const String fileContent = Utility::File::Read(InPath);
     CHECK_RETURN_LOG(fileContent.empty(), "Property file empty: " + InPath, false);

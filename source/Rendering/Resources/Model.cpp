@@ -3,6 +3,7 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 
 #include "Loaders/ModelLoaderOBJ.h"
+#include "Loaders/ModelLoaderGLTF.h"
 
 #include "Context/Context.h"
 
@@ -25,7 +26,10 @@ bool Rendering::ModelResource::Load()
 void Rendering::ModelResource::ContinueLoad()
 {
     if (loadCount == 0)
+    {
+        LOG("Load finished!")
         return;
+    }
     if (!asyncLoadStarted)
         return;
     

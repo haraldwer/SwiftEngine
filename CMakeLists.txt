@@ -17,6 +17,7 @@ include(cmake/SharedCompileOptions.cmake)
 # Dependencies
 set(DEP_INCLUDES "")
 set(DEPENDENCY_DIR cmake/Dependencies)
+include(${DEPENDENCY_DIR}/HarfBuzz.cmake)
 include(${DEPENDENCY_DIR}/FastNoiseLite.cmake)
 include(${DEPENDENCY_DIR}/MeshOptimizer.cmake)
 include(${DEPENDENCY_DIR}/Miniaudio.cmake)
