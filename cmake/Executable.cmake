@@ -16,7 +16,8 @@ else()
     set(DYNAMIC_LIB_SRC
         ${CMAKE_SOURCE_DIR}/library/${COMPILE_PLATFORM_PATH}/dynamic/)
 endif()
-if (EXISTS "${DYNAMIC_LIBS_SRC}")
+
+if (MSVC OR EXISTS "${DYNAMIC_LIBS_SRC}")
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${DYNAMIC_LIB_SRC}
