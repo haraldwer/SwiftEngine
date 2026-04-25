@@ -34,7 +34,7 @@ void Rendering::SceneRenderer::Render(CommandList& InOutList, Viewport& InMainVi
         command.depthTarget = &targets.msaaDepth;
         command.writeDepth = true;
         command.multisample = true;
-        command.transforms = { Mat4F({}, {}, 0.001f) }; // Assumes one mesh
+        command.transforms = { Mat4F({}, {}, 1.0f) }; // Assumes one mesh
         command.model = m; // Assumes fullscreen pass
         command.buffers = &buffers;
         InOutList.Add(command);

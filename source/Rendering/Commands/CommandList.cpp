@@ -115,6 +115,7 @@ void Rendering::CommandList::Add(const Command& InCommand)
         InCommand.customFunc(renderPass);
     
     // Use renderpass
+    CHECK_RETURN_LOG(!Context::Get().CheckDeviceValidation(), "Device validation failed");
     wgpuRenderPassEncoderEnd(renderPass);
     wgpuRenderPassEncoderRelease(renderPass);
 }

@@ -25,7 +25,7 @@ void Rendering::ImGuiContext::Init(Window &InWindow, Context &InContext)
     ImGui::Theme3();
     ImGui::LoadFont(1.0f);
     
-    BeginFrame(InWindow.Size());
+    BeginFrame(InWindow.GetConfig().Size);
 }
 
 void Rendering::ImGuiContext::Deinit()
@@ -39,7 +39,6 @@ void Rendering::ImGuiContext::BeginFrame(Vec2I InSize)
 {
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplGlfw_NewFrame();
-    ImGui::GetIO().DisplaySize = ImVec2((float)InSize.x, (float)InSize.y);
     ImGui::NewFrame();
 }
 

@@ -1,5 +1,6 @@
 #include "Manager.h"
 
+#include "Config.h"
 #include "ImGuiContext.h"
 #include "Commands/Command.h"
 #include "Commands/CommandList.h"
@@ -7,18 +8,29 @@
 void Rendering::Manager::Init()
 {
     RN_PROFILE();
-    context.BeginInit({});
-    window.Open({});
+    
+    Config config;
+    config.LoadConfig();
+    
+    context.BeginInit(config.Context);
+    window.Open(config.Window);
     context.EndInit(window);
+    
     ImGuiContext::Init(window, context);
     pipelineCache.Init();
-    viewport.Init(window.Size());
+    viewport.Init(window.GetConfig().Size);
     modelDefaults.Init();
 }
 
 void Rendering::Manager::Deinit()
 {
     RN_PROFILE();
+    
+    Config config;
+    config.Window = window.GetConfig();
+    config.Context = context.GetConfig();
+    config.SaveConfig();
+    
     modelDefaults.Deinit();
     pipelineCache.Deinit();
     ImGuiContext::Deinit();
@@ -34,7 +46,7 @@ int Rendering::Manager::Frame(bool& InRun)
     ImGuiContext::EndFrame();
 
     RenderTarget& windowTarget = window.BeginFrame();
-    viewport.Resize(window.Size());
+    viewport.Resize(window.GetConfig().Size);
     auto& targets = viewport.GetTargets();
     
     list.Begin("Scene");
@@ -42,6 +54,9 @@ int Rendering::Manager::Frame(bool& InRun)
     list.End();
     
     // Post processing...
+    list.Begin("Postprocessing");
+    
+    list.End();
     
     list.Begin("Viewport");
     buffers.GetGroup(0).Set(0, targets.msaaFrame);
@@ -58,7 +73,7 @@ int Rendering::Manager::Frame(bool& InRun)
     list.Submit();
     window.Present(InRun);
     
-    ImGuiContext::BeginFrame(window.Size());
+    ImGuiContext::BeginFrame(window.GetConfig().Size);
     
     return pacer.Pace();
 }

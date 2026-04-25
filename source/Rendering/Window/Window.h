@@ -18,19 +18,23 @@ namespace Rendering
         RenderTarget& BeginFrame();
         void Present(bool& InRun);
 
-        Vec2I Size() const;
-        void RequestResize(int width, int height);
-
-    private:
-        Vec2I pendingSize;
-        void TryResize();
+        WindowConfig GetConfig() const { return config; }
+        void QueueConfig(const WindowConfig& InConfig);
         
-        WindowConfig config = {};
+    private:
+        void CreateWindow(const WindowConfig& InConfig);
+        void DestroyWindow();
+        void TryConfigure(bool InOnOpen);
+        
+        WindowConfig pendingConfig;
+        WindowConfig config;
+        
         WindowHandle window = nullptr;
         Input input = {};
         
-        WGPUSurface surface;
-        WGPUSurfaceTexture surfaceTexture;
+        WGPUSurface surface = {};
+        bool surfaceConfigured = false;
+        WGPUSurfaceTexture surfaceTexture = {};
         RenderTarget target;
     };
 }

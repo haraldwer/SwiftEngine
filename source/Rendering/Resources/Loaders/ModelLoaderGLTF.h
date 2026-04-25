@@ -45,9 +45,10 @@ inline GLTFModelLoadResult AsyncLoadModelGLTF(const Resource::ID& InID)
     {
         auto& node = nodes.at(InIndex);
         Mat4F trans;
-        for (int i = 0; i < 16; i++)
-            trans.data[i] = static_cast<float>(node.matrix[i]);
-        trans = InParent * trans;
+        if (node.matrix.size() >= 16)
+            for (int i = 0; i < 16; i++)
+                trans.data[i] = static_cast<float>(node.matrix[i]);
+        trans = trans * InParent;
         if (node.mesh >= 0)
             result.transforms[node.mesh].push_back(trans);
         for (int childIndex : node.children)

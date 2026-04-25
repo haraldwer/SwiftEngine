@@ -1,6 +1,7 @@
 #include "Logging.h"
 
 #include <iostream>
+#include <mutex>
 
 #ifdef EMSCRIPTEN
 #include "emscripten/console.h"
@@ -9,12 +10,15 @@
 
 static Vector<std::function<void(const String&)>> logCallbacks;
 
-void Log(const String& InMessage)
+void Log(const String& InMessage, bool InLock = true)
 {
+    static std::mutex mut;
     static String last;
     static uint32 lastC;
+    if (InLock) mut.lock();
     if (InMessage == last)
     {
+        if (InLock) mut.unlock();
         lastC++;
         return;
     }
@@ -24,7 +28,7 @@ void Log(const String& InMessage)
         const String msg = last + " (" + std::to_string(lastC) + ")";
         lastC = 0;
         last = String();
-        Log(msg);
+        Log(msg, false);
     }
 
     char timeStr[64] = {};
@@ -40,6 +44,7 @@ void Log(const String& InMessage)
     
     last = InMessage;
     lastC = 0;
+    if (InLock) mut.unlock();
 }
 
 void Utility::ExternalLog(const String& InCategory, const String& InFile, const String& InFunc, const int InLine, const String& InText)

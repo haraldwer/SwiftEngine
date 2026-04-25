@@ -318,8 +318,8 @@ void Rendering::Context::ConfigureWindowSurface(const Window& InWindow)
     surfaceConfig.presentMode = surfaceCapabilities.presentModes[0];
     surfaceConfig.alphaMode = surfaceCapabilities.alphaModes[0];
     surfaceConfig.usage = WGPUTextureUsage_RenderAttachment;
-    surfaceConfig.width = InWindow.config.Resolution.Get().x;
-    surfaceConfig.height = InWindow.config.Resolution.Get().y;
+    surfaceConfig.width = InWindow.config.Size.Get().x;
+    surfaceConfig.height = InWindow.config.Size.Get().y;
     surfaceConfig.device = device;
     wgpuSurfaceConfigure(InWindow.surface, &surfaceConfig);
 }
@@ -433,10 +433,11 @@ WGPUBindGroup Rendering::Context::CreateBindGroup(WGPUBindGroupLayout InLayout, 
     return bindGroup;
 }
 
-void Rendering::Context::Submit(const Vector<WGPUCommandBuffer> &InCommands) const
+void Rendering::Context::Submit(const Vector<WGPUCommandBuffer> &InCommands)
 {
     RN_PROFILE();
     CHECK_ASSERT(!queue, "Queue not initialized");
+    CHECK_RETURN_LOG(!CheckDeviceValidation(), "Device validation failed");
     wgpuQueueSubmit(queue, InCommands.size(), InCommands.data());
 }
 

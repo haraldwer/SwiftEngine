@@ -28,13 +28,14 @@ namespace Rendering
         WGPUBindGroupLayout CreateBindGroupLayout(const Vector<WGPUBindGroupLayoutEntry>& InLayoutEntries) const;
         WGPUPipelineLayout CreateLayout(const Vector<WGPUBindGroupLayout>& InLayoutGroups) const;
         WGPUBindGroup CreateBindGroup(WGPUBindGroupLayout InLayout, const Vector<WGPUBindGroupEntry>& InEntries) const;
-        void Submit(const Vector<WGPUCommandBuffer>& InCommands) const;
+        void Submit(const Vector<WGPUCommandBuffer>& InCommands);
         void Poll(bool InWait = false);
 
         WGPUTexture CreateTexture(const WGPUTextureDescriptor& InDesc) const;
         
         bool CheckDeviceValidation();
-
+        
+        ContextConfig GetConfig() const { return config; }
 
     private:
         ContextConfig config;
@@ -45,16 +46,16 @@ namespace Rendering
         void InitDevice();
         void InitQueue();
         
-        WGPUInstance instance;
-        WGPUAdapter adapter;
-        WGPUDevice device;
-        WGPUQueue queue;
+        WGPUInstance instance = {};
+        WGPUAdapter adapter = {};
+        WGPUDevice device = {};
+        WGPUQueue queue = {};
         
         // TODO: Store limits!
-        WGPULimits adapterLimits;
-        WGPUSupportedFeatures adapterFeatures;
-        WGPUAdapterInfo adapterInfo;
-        WGPUSurfaceCapabilities surfaceCapabilities;
+        WGPULimits adapterLimits = {};
+        WGPUSupportedFeatures adapterFeatures = {};
+        WGPUAdapterInfo adapterInfo = {};
+        WGPUSurfaceCapabilities surfaceCapabilities = {};
         
         bool deviceInvalid = false;
     };

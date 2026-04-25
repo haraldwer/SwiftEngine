@@ -4,6 +4,7 @@
 #include "Uniforms/UniformBuffer.h"
 #include "Commands/CommandList.h"
 #include "Context/Context.h"
+#include "Music/Generator.h"
 #include "Pipeline/PipelineCache.h"
 #include "Scene/SceneRenderer.h"
 #include "Viewport/Viewport.h"

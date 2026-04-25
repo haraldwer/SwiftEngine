@@ -39,7 +39,7 @@ bool Rendering::ModelResource::Load()
 
 static Rendering::MeshTransformBuffer LoadTransformBuffer(const Vector<Mat4F>& InTransforms)
 {
-    if (InTransforms.empty() || (InTransforms.size() == 1 && InTransforms.at(1) == Mat4F()))
+    if (InTransforms.empty() || (InTransforms.size() == 1 && InTransforms.at(0) == Mat4F()))
     {
         // Use a default buffer!
         return {};

@@ -31,6 +31,6 @@ namespace Rendering
         BufferCollection buffers;
         
         ResRM rm = ResRM("Materials/Surface/RM_Default.json");
-        ResModel m = ResModel("Test/conference/conference.obj");
+        ResModel m = ResModel("Test/Sponza/NewSponza_Main_glTF_003.gltf");
     };
 }
