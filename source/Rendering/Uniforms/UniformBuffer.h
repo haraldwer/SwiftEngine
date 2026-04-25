@@ -14,33 +14,34 @@ namespace Rendering
     class BufferGroup
     {
         friend class BufferCollection;
+        
     public:
-        
         template <class T>
-        void Set(const int InSlot, const T& InData, WGPUShaderStage InVisibility = WGPUShaderStage_Fragment | WGPUShaderStage_Vertex)
+        void Set(const int InSlot, const T& InData, WGPUShaderStage InVisibility = WGPUShaderStage_Fragment | WGPUShaderStage_Vertex, WGPUBufferBindingType InType = WGPUBufferBindingType_Uniform)
         {
-            Set(InSlot, reinterpret_cast<const void *>(&InData), sizeof(T), InVisibility);
+            Set(InSlot, reinterpret_cast<const void *>(&InData), sizeof(T), InVisibility, InType);
         }
         
         template <class T>
-        void Set(const int InSlot, const Vector<T>& InData, WGPUShaderStage InVisibility = WGPUShaderStage_Fragment | WGPUShaderStage_Vertex)
+        void Set(const int InSlot, const Vector<T>& InData, WGPUShaderStage InVisibility = WGPUShaderStage_Fragment | WGPUShaderStage_Vertex, WGPUBufferBindingType InType = WGPUBufferBindingType_Uniform)
         {
-            Set(InSlot, reinterpret_cast<const void*>(InData.data()), InData.size() * sizeof(T), InVisibility);
+            Set(InSlot, reinterpret_cast<const void*>(InData.data()), InData.size() * sizeof(T), InVisibility, InType);
         }
         
-        void Set(int InSlot, const void* InData, uint64 InSize, WGPUShaderStage InVisibility = WGPUShaderStage_Fragment | WGPUShaderStage_Vertex);
+        void Set(int InSlot, const void* InData, uint64 InSize, WGPUShaderStage InVisibility = WGPUShaderStage_Fragment | WGPUShaderStage_Vertex, WGPUBufferBindingType InType = WGPUBufferBindingType_Uniform);
+        void Set(int InSlot, WGPUBuffer InBuffer, uint64 InSize, WGPUShaderStage InVisibility = WGPUShaderStage_Fragment | WGPUShaderStage_Vertex, WGPUBufferBindingType InType = WGPUBufferBindingType_Uniform);
         void Set(int InSlot, const WGPUTextureView& InView, const WGPUTextureBindingLayout& InLayout, WGPUShaderStage InVisibility = WGPUShaderStage_Fragment);
         void Set(int InSlot, const RenderTarget& InTexture, WGPUShaderStage InVisibility = WGPUShaderStage_Fragment);
         
         void Clear();
         
     private:
-        
         struct Uniform
         {
             void* data = nullptr;
             uint64 size = 0;
             WGPUBuffer buffer = {};
+            bool externalBuffer = false;
             WGPUTextureView view = {};
         };
         Vector<Uniform> uniforms;
@@ -54,7 +55,6 @@ namespace Rendering
     class BufferCollection
     {
     public:
-        
         BufferGroup& GetGroup(int InSlot);
         PipelineLayout* GetLayout();
         void Clear();

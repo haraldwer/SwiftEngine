@@ -14,14 +14,19 @@ namespace Rendering
         bool Load() override;
         bool Unload() override;
         bool Edit(const String &InName, uint32 InOffset = 0) override;
-        
+
         static bool Accept(const String& InPath)
         {
-            return InPath.ends_with(".obj") || InPath.ends_with(".gltf");
+            return 
+                InPath.ends_with(".obj") || 
+                InPath.ends_with(".gltf") ||
+                InPath == "Cube" ||
+                InPath == "Cylinder" ||
+                InPath == "Sphere";
         }
         
         const MeshState* GetMeshState();
-        MeshLOD const* GetMesh(int InMeshIndex, int InLOD);
+        MeshData GetMesh(int InMeshIndex, int InLOD);
         int GetMeshCount();
 
     private:
@@ -34,9 +39,20 @@ namespace Rendering
         MeshState state = {};
         
         // TODO: Only load requested meshes and lods
+        
+        void LoadPrimitive();
     };
     
-    // TODO: Provide some default meshes...
+    class ModelDefaults : public Utility::Singelton<ModelDefaults, true>
+    {
+        friend class CommandList;
+    public:
+        void Init();
+        void Deinit();
+        
+    private:
+        MeshTransformBuffer defaultBuffer;
+    };
 }
 
 typedef Resource::Ref<Rendering::ModelResource> ResModel;  

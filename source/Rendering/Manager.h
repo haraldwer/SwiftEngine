@@ -34,6 +34,7 @@ namespace Rendering
         CommandList list;
         BufferCollection buffers;
         SceneRenderer sceneRenderer;
+        ModelDefaults modelDefaults;
         
         ResRM blit = ResRM("Materials/Fullscreen/SH_Blit.wgsl");
         ResRM resolve = ResRM("Materials/Fullscreen/SH_MultisampleResolve.wgsl");

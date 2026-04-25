@@ -12,23 +12,50 @@
 bool Rendering::ModelResource::Load()
 {
     CHECK_ASSERT(!meshes.empty(), "Model already loaded");
-    
     if (asyncLoadStarted)
         return true;
     
+    String path = id.Str();
+    if (id.Str() == "Cube") path = "Defaults/M_Cube.obj";
+    if (id.Str() == "Cylinder") path = "Defaults/M_Cylinder.obj";
+    if (id.Str() == "Sphere") path = "Defaults/M_Cylinder.obj";
+    
+    CHECK_RETURN_LOG(!Utility::File::Exists(path), "Model does not exist: " + path, false)
+    
     asyncLoadStarted = true;
     loadCount++;
-    LOG("Loading model: ", id.Str());
-    if (id.Str().ends_with(".obj"))
+    LOG("Loading model: ", path);
+    if (path.ends_with(".obj"))
         Tasks::Enqueue<Resource::ID, OBJModelLoadResult>(id, &AsyncLoadModelOBJ);
-    else if (id.Str().ends_with(".gltf"))
+    else if (path.ends_with(".gltf"))
         Tasks::Enqueue<Resource::ID, GLTFModelLoadResult>(id, &AsyncLoadModelGLTF);
     else
     {
-        LOG("Unknown model type: " + id.Str());
+        LOG("Unknown model type: " + path);
         return false;
     }
     return true;
+}
+
+static Rendering::MeshTransformBuffer LoadTransformBuffer(const Vector<Mat4F>& InTransforms)
+{
+    if (InTransforms.empty() || (InTransforms.size() == 1 && InTransforms.at(1) == Mat4F()))
+    {
+        // Use a default buffer!
+        return {};
+    }
+    
+    Rendering::MeshTransformBuffer result;
+    WGPUBufferDescriptor desc = {};
+    desc.size  = InTransforms.size() * sizeof(Mat4F);
+    desc.usage = WGPUBufferUsage_Storage;
+    desc.mappedAtCreation = true;
+    result.buffer = Rendering::Context::Get().CreateBuffer(desc);
+    auto gpuMem = wgpuBufferGetMappedRange(result.buffer, 0, desc.size);
+    memcpy(gpuMem, InTransforms.data(), desc.size);
+    wgpuBufferUnmap(result.buffer);
+    result.count = InTransforms.size();
+    return result;
 }
 
 void Rendering::ModelResource::ContinueLoad()
@@ -60,7 +87,7 @@ void Rendering::ModelResource::ContinueLoad()
             params.reader = InResult.reader;
             params.id = id;
             params.shapeIndex = i;
-            Tasks::Enqueue<OBJMeshLoadParams, ObjectPtr<MeshData>>(params, &AsyncLoadMeshOBJ);
+            Tasks::Enqueue<OBJMeshLoadParams, ObjectPtr<MeshContent>>(params, &AsyncLoadMeshOBJ);
         }
         return true;
     }, 1);
@@ -72,29 +99,31 @@ void Rendering::ModelResource::ContinueLoad()
             
         CHECK_RETURN_LOG(!InResult.success, "Failed to load model: " + id.Str(), false)
         CHECK_RETURN_LOG(!InResult.reader, "Reader invalid: " + id.Str(), false)
-
+        
         LoadState();
         auto& shapes = InResult.reader->meshes;
         meshes.resize(shapes.size());
-            
         for (int i = 0; i < shapes.size(); i++)
         {
-            meshes.at(i).lods.resize(numGenLODs + 1);
-                
+            auto& mesh = meshes.at(i);
+            mesh.lods.resize(numGenLODs + 1);
+            if (InResult.transforms.contains(i))
+                mesh.transforms = LoadTransformBuffer(InResult.transforms.at(i));
+            
             // Start new tasks
             loadCount++;
             GLTFMeshLoadParams params;
             params.reader = InResult.reader;
             params.id = id;
             params.shapeIndex = i;
-            Tasks::Enqueue<GLTFMeshLoadParams, ObjectPtr<MeshData>>(params, &AsyncLoadMeshGLTF);
+            Tasks::Enqueue<GLTFMeshLoadParams, ObjectPtr<MeshContent>>(params, &AsyncLoadMeshGLTF);
         }
         
         // Possibly also load textures?
         return true;
     }, 1);
     
-    Tasks::Consume<OBJMeshLoadParams, ObjectPtr<MeshData>>([&](const OBJMeshLoadParams& InParams, const ObjectPtr<MeshData>& InData)
+    Tasks::Consume<OBJMeshLoadParams, ObjectPtr<MeshContent>>([&](const OBJMeshLoadParams& InParams, const ObjectPtr<MeshContent>& InData)
     {
         CHECK_RETURN(InParams.id != id.Str(), false);
         loadCount--;
@@ -122,7 +151,7 @@ void Rendering::ModelResource::ContinueLoad()
     }, 1);
     
 
-    Tasks::Consume<GLTFMeshLoadParams, ObjectPtr<MeshData>>([&](const GLTFMeshLoadParams& InParams, const ObjectPtr<MeshData>& InData)
+    Tasks::Consume<GLTFMeshLoadParams, ObjectPtr<MeshContent>>([&](const GLTFMeshLoadParams& InParams, const ObjectPtr<MeshContent>& InData)
     {
         CHECK_RETURN(InParams.id != id.Str(), false);
         loadCount--;
@@ -262,6 +291,9 @@ bool Rendering::ModelResource::Unload()
                 if (lod.vertexBuffer) wgpuBufferRelease(lod.vertexBuffer);
                 if (lod.indexBuffer) wgpuBufferRelease(lod.indexBuffer);
             }
+            if (mesh.transforms.buffer)
+                wgpuBufferDestroy(mesh.transforms.buffer);
+            mesh.transforms = {};
         }
         meshes.clear();
     }
@@ -283,18 +315,42 @@ const Rendering::MeshState* Rendering::ModelResource::GetMeshState()
     return nullptr;
 }
 
-Rendering::MeshLOD const* Rendering::ModelResource::GetMesh(const int InMeshIndex, const int InLOD)
+Rendering::MeshData Rendering::ModelResource::GetMesh(const int InMeshIndex, const int InLOD)
 {
     ContinueLoad();
-    if (InMeshIndex < 0 || InMeshIndex >= static_cast<int>(meshes.size()))
-        return nullptr;
+    CHECK_RETURN(InMeshIndex < 0 || InMeshIndex >= static_cast<int>(meshes.size()), {})
     auto& mesh = meshes.at(InMeshIndex); 
     const int lod = Utility::Math::Clamp(InLOD, 0, static_cast<int>(mesh.lods.size()) - 1);
-    return &mesh.lods.at(lod);
+    return {
+        &mesh.lods.at(lod),
+        &mesh.transforms
+    };
 }
 
 int Rendering::ModelResource::GetMeshCount()
 {
     ContinueLoad();
     return static_cast<int>(meshes.size());
+}
+
+void Rendering::ModelDefaults::Init()
+{
+    WGPUBufferDescriptor desc = {};
+    desc.size  = sizeof(Mat4F);
+    desc.usage = WGPUBufferUsage_Storage;
+    desc.mappedAtCreation = true;
+    defaultBuffer.buffer = Context::Get().CreateBuffer(desc);
+    auto gpuMem = wgpuBufferGetMappedRange(defaultBuffer.buffer, 0, desc.size);
+    Mat4F data = Mat4F();
+    memcpy(gpuMem, data.data, desc.size);
+    wgpuBufferUnmap(defaultBuffer.buffer);
+    defaultBuffer.count = 1;
+}
+
+void Rendering::ModelDefaults::Deinit()
+{
+    CHECK_ASSERT(!defaultBuffer.buffer, "Invalid buffer");
+    wgpuBufferDestroy(defaultBuffer.buffer);
+    defaultBuffer.buffer = nullptr;
+    defaultBuffer.count = 0;
 }

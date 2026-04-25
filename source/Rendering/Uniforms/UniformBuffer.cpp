@@ -3,7 +3,7 @@
 #include "Context/Context.h"
 #include "Targets/RenderTarget.h"
 
-void Rendering::BufferGroup::Set(const int InSlot, const void* InData, const uint64 InSize, WGPUShaderStage InVisibility)
+void Rendering::BufferGroup::Set(const int InSlot, const void* InData, const uint64 InSize, WGPUShaderStage InVisibility, WGPUBufferBindingType InType)
 {
     CHECK_ASSERT(!InData, "Invalid data");
     CHECK_ASSERT(!InSize, "Invalid size");
@@ -31,13 +31,18 @@ void Rendering::BufferGroup::Set(const int InSlot, const void* InData, const uin
         uniform.size = InSize;
         
         // Also recreate buffer
-        if (uniform.buffer)
+        if (uniform.buffer && !uniform.externalBuffer)
+        {
             wgpuBufferDestroy(uniform.buffer);
+            uniform.buffer = nullptr;
+        }
         WGPUBufferDescriptor desc = {};
         desc.size = InSize;
-        desc.usage = WGPUBufferUsage_Uniform;
+        desc.usage = InType == WGPUBufferBindingType_Uniform ? WGPUBufferUsage_Uniform : WGPUBufferUsage_Storage;
         desc.label = ToStr("Uniform buffer"); // TODO: Make unique
+        desc.mappedAtCreation = false;
         uniform.buffer = Context::Get().CreateBuffer(desc);
+        uniform.externalBuffer = false;
         
         binding.binding = InSlot;  // Index of bidning
         binding.buffer = uniform.buffer;
@@ -62,10 +67,78 @@ void Rendering::BufferGroup::Set(const int InSlot, const void* InData, const uin
     {
         layout.binding = InSlot; // Index in shader
         layout.visibility = InVisibility;
-        layout.buffer.type = WGPUBufferBindingType_Uniform;
-        layout.buffer.minBindingSize = InSize;
+        layout.buffer.type = InType;
         layout.buffer.hasDynamicOffset = WGPUOptionalBool_False;
-        // TODO: Textures are bound here ^
+        layoutChanged = true;
+        
+        // Slot part of hash order
+        struct LayoutHash
+        {
+            uint64 size;
+            WGPUShaderStage visibility;
+        } hashData {
+            InSize,
+            InVisibility
+        };
+        hashes.at(InSlot) = Utility::Hash(hashData);
+    }
+}
+
+void Rendering::BufferGroup::Set(const int InSlot, WGPUBuffer InBuffer, uint64 InSize, WGPUShaderStage InVisibility, WGPUBufferBindingType InType)
+{
+    CHECK_ASSERT(!InBuffer, "Invalid buffer");
+    CHECK_ASSERT(!InSize, "Invalid size");
+    CHECK_ASSERT(InSlot < 0, "Invalid slot");
+    
+    if (uniforms.size() <= InSlot)
+        uniforms.resize(InSlot + 1);
+    auto& uniform = uniforms.at(InSlot);
+    if (layouts.size() <= InSlot)
+        layouts.resize(InSlot + 1);
+    auto& layout = layouts.at(InSlot);
+    if (bindings.size() <= InSlot)
+        bindings.resize(InSlot + 1);
+    auto& binding = bindings.at(InSlot);
+    if (hashes.size() <= InSlot)
+        hashes.resize(InSlot + 1);
+    
+    // Resize buffer
+    bool changed = false;
+    if (uniform.buffer != InBuffer)
+    {
+        if (uniform.data != nullptr) 
+            free(uniform.data);
+        uniform.data = nullptr;
+        uniform.size = InSize;
+        
+        // Also recreate buffer
+        if (uniform.buffer && !uniform.externalBuffer)
+        {
+            wgpuBufferDestroy(uniform.buffer);
+            uniform.buffer = nullptr;
+        }
+        uniform.buffer = InBuffer;
+        uniform.externalBuffer = true;
+        
+        binding.binding = InSlot;  // Index of bidning
+        binding.buffer = uniform.buffer;
+        binding.offset = 0; // Offset within buffer
+        binding.size = InSize; // Size of buffer
+        bindingChanged = true;
+        changed = true;
+    }
+    
+    // Data is already on GPU, dont copy!
+    
+    // Update layout
+    if (changed || 
+        layout.visibility != InVisibility || 
+        layout.binding != InSlot)
+    {
+        layout.binding = InSlot; // Index in shader
+        layout.visibility = InVisibility;
+        layout.buffer.type = InType;
+        layout.buffer.hasDynamicOffset = WGPUOptionalBool_False;
         layoutChanged = true;
         
         // Slot part of hash order
@@ -141,11 +214,11 @@ void Rendering::BufferGroup::Set(const int InSlot, const WGPUTextureView& InView
 void Rendering::BufferGroup::Set(const int InSlot, const RenderTarget &InTexture, const WGPUShaderStage InVisibility)
 {
     WGPUTextureBindingLayout layout;
-    if (InTexture.descriptor.type == TextureType::DEPTH)
-        layout.sampleType = WGPUTextureSampleType_Depth;
     layout.viewDimension = InTexture.GetViewDimension();
     layout.multisampled = WGPUOptionalBool_False;
     layout.sampleType = WGPUTextureSampleType_Float;
+    if (InTexture.descriptor.type == TextureType::DEPTH)
+        layout.sampleType = WGPUTextureSampleType_Depth;
     
     WGPUTextureView view = InTexture.view;
     if (InTexture.descriptor.multisample > 1 && !InTexture.descriptor.msaaResolve)
@@ -168,8 +241,11 @@ void Rendering::BufferGroup::Clear()
             free(uniform.data);
             uniform.data = nullptr;
         }
-        if (uniform.buffer)
+        if (uniform.buffer && ! uniform.externalBuffer)
+        {
             wgpuBufferDestroy(uniform.buffer);
+            uniform.buffer = {};
+        }
     }
     uniforms.clear();
 }

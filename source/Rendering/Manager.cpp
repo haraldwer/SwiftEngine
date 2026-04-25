@@ -13,11 +13,13 @@ void Rendering::Manager::Init()
     ImGuiContext::Init(window, context);
     pipelineCache.Init();
     viewport.Init(window.Size());
+    modelDefaults.Init();
 }
 
 void Rendering::Manager::Deinit()
 {
     RN_PROFILE();
+    modelDefaults.Deinit();
     pipelineCache.Deinit();
     ImGuiContext::Deinit();
     window.Close();
