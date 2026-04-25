@@ -231,10 +231,12 @@ void Rendering::Context::InitDevice()
 
 bool Rendering::Context::CheckDeviceValidation()
 {
+#ifdef _DEBUG
     if (!deviceInvalid)
         return true;
     deviceInvalid = false;
     return false;
+#endif
 }
 
 void Rendering::Context::InitQueue()
@@ -371,7 +373,6 @@ WGPUBuffer Rendering::Context::CreateBuffer(WGPUBufferDescriptor InDesc) const
     RN_PROFILE();
     InDesc.size = GetAlignedBufferSize(InDesc.size);
     InDesc.usage |= WGPUBufferUsage_CopyDst;
-    InDesc.mappedAtCreation = false;
     auto buffer = wgpuDeviceCreateBuffer(device, &InDesc);
     CHECK_ASSERT(!buffer, "Failed to create buffer");
     return buffer;

@@ -45,7 +45,7 @@ struct VertexKeyHash
     }
 };
     
-struct MeshData
+struct MeshContent
 {
     Vector<VertexLayout> vertices;
     Vector<uint32> indices;
@@ -57,7 +57,7 @@ struct LODLoadParams
     Resource::ID id;
     int shapeIndex = 0;
     int lodIndex = 0;
-    ObjectPtr<MeshData> data;
+    ObjectPtr<MeshContent> data;
 };
 
 struct LODData

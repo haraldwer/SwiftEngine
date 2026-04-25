@@ -30,7 +30,6 @@ namespace Rendering
         // What is it?
         Vector<Mat4F> transforms = {};
         ResModel model = {};
-        int uniforms = 0;
         RenderFunc customFunc;
     };
 }

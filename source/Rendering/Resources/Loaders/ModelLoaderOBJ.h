@@ -29,7 +29,7 @@ struct OBJMeshLoadParams
     int shapeIndex = 0;
 };
 
-inline ObjectPtr<MeshData> AsyncLoadMeshOBJ(const OBJMeshLoadParams& InParams)
+inline ObjectPtr<MeshContent> AsyncLoadMeshOBJ(const OBJMeshLoadParams& InParams)
 {
     LOG("Loading mesh ", InParams.shapeIndex)
     auto& shapes = InParams.reader->GetShapes();
@@ -38,7 +38,7 @@ inline ObjectPtr<MeshData> AsyncLoadMeshOBJ(const OBJMeshLoadParams& InParams)
         return {};
     
     auto& attrib = InParams.reader->GetAttrib();
-    ObjectPtr result = new MeshData();
+    ObjectPtr result = new MeshContent();
     auto& vertices = result->vertices;
     auto& indices = result->indices;
     std::unordered_map<VertexKey, uint32, VertexKeyHash> remap;

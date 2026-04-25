@@ -16,6 +16,7 @@
 struct GLTFModelLoadResult
 {
     ObjectPtr<tinygltf::Model> reader;
+    Map<int, Vector<Mat4F>> transforms;
     bool success = false;
 };
 
@@ -35,6 +36,28 @@ inline GLTFModelLoadResult AsyncLoadModelGLTF(const Resource::ID& InID)
     if (!err.empty())
         LOG("Err: %s\n", err.c_str());
     CHECK_RETURN_LOG(!ret, "Failed to parse glTF: " + filename, {})
+    
+    int defaultSceneIndex = Utility::Math::Clamp(result.reader->defaultScene, 0, static_cast<int>(result.reader->scenes.size()));
+    auto& defaultScene = result.reader->scenes.at(defaultSceneIndex);
+    auto& nodes = result.reader->nodes;
+        
+    std::function<void(int, const Mat4F&)> gatherTransforms = [&] (int InIndex, const Mat4F& InParent)
+    {
+        auto& node = nodes.at(InIndex);
+        Mat4F trans;
+        for (int i = 0; i < 16; i++)
+            trans.data[i] = static_cast<float>(node.matrix[i]);
+        trans = InParent * trans;
+        if (node.mesh >= 0)
+            result.transforms[node.mesh].push_back(trans);
+        for (int childIndex : node.children)
+            gatherTransforms(childIndex, trans);
+
+    };
+        
+    for (int nodeIndex : defaultScene.nodes)
+        gatherTransforms(nodeIndex, Mat4F());
+    
     return result;
 }
 
@@ -45,7 +68,7 @@ struct GLTFMeshLoadParams
     int shapeIndex = 0;
 };
 
-inline ObjectPtr<MeshData> AsyncLoadMeshGLTF(const GLTFMeshLoadParams& InParams)
+inline ObjectPtr<MeshContent> AsyncLoadMeshGLTF(const GLTFMeshLoadParams& InParams)
 {
     auto model = InParams.reader.Get();
     auto& shapes = model->meshes;
@@ -53,7 +76,7 @@ inline ObjectPtr<MeshData> AsyncLoadMeshGLTF(const GLTFMeshLoadParams& InParams)
     if (primitives.empty())
         return {};
     
-    ObjectPtr result = new MeshData();
+    ObjectPtr result = new MeshContent();
     auto& vertices = result->vertices;
     auto& indices = result->indices;
     

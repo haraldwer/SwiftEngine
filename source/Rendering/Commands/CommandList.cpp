@@ -119,8 +119,10 @@ void Rendering::CommandList::Add(const Command& InCommand)
     wgpuRenderPassEncoderRelease(renderPass);
 }
 
-void Rendering::CommandList::RenderModel(const Command &InCommand, const WGPURenderPassEncoder& renderPass) 
+void Rendering::CommandList::RenderModel(const Command& InCommand, const WGPURenderPassEncoder& renderPass) 
 {
+    CHECK_ASSERT(!InCommand.buffers, "Model rendering requires buffers");
+    
     // Get material and mesh
     ModelResource* model = InCommand.model.Get();
     CHECK_RETURN(!model);
@@ -142,33 +144,47 @@ void Rendering::CommandList::RenderModel(const Command &InCommand, const WGPURen
         pipelineDesc.data.depth.format = InCommand.depthTarget->descriptor.format;
     pipelineDesc.data.depth.write = InCommand.writeDepth;
     
-    pipelineDesc.layout = InCommand.buffers ? 
-        InCommand.buffers->GetLayout() : nullptr;
+    // Prepare layout
+    auto& bufferGroup = InCommand.buffers->GetGroup(1);
+    bufferGroup.Set(0, InCommand.transforms, WGPUShaderStage_Vertex, WGPUBufferBindingType_ReadOnlyStorage);
+    MeshTransformBuffer const* buff = &ModelDefaults::Get().defaultBuffer;
+    CHECK_ASSERT(!buff->buffer, "Invalid mesh buffer")
+    bufferGroup.Set(1, buff->buffer, sizeof(Mat4F), WGPUShaderStage_Vertex, WGPUBufferBindingType_ReadOnlyStorage);
     
+    // Get layout and pipeline
+    pipelineDesc.layout = InCommand.buffers->GetLayout();
     WGPURenderPipeline* pipeline = PipelineCache::Get().GetPipeline(pipelineDesc);
     CHECK_RETURN(!pipeline);
     
     wgpuRenderPassEncoderSetPipeline(renderPass, *pipeline);
-        
-    // Bind buffers
-    if (InCommand.buffers)
-        CHECK_RETURN(!InCommand.buffers->Bind(renderPass));
-        
-    // For now, render all meshes
-    // In the future: Combine mesh buffers? 
+    
+    // TODO: Combine mesh buffers
     int numMeshes = model->GetMeshCount();
     for (int i = 0; i < numMeshes; i++)
     {
-        auto lod = model->GetMesh(i, 0);
-        CHECK_CONTINUE(!lod);
-        auto& vb = lod->vertexBuffer;
-        auto& ib = lod->indexBuffer;
+        auto mesh = model->GetMesh(i, 0);
+        CHECK_CONTINUE(!mesh.lod);
+        auto& vb = mesh.lod->vertexBuffer;
+        auto& ib = mesh.lod->indexBuffer;
         CHECK_RETURN(!vb || !ib);
         
-        // TODO: Bind mesh-specific buffers...            
-        wgpuRenderPassEncoderSetVertexBuffer(renderPass, 0, vb, 0, lod->vertexCount * lod->vertexStride);
-        wgpuRenderPassEncoderSetIndexBuffer(renderPass, ib, lod->indexFormat, 0, lod->indexCount * lod->indexStride);
-        wgpuRenderPassEncoderDrawIndexed(renderPass, lod->indexCount, 1, 0, 0, 0);
+        // Set mesh and instance transforms
+        auto& bufferGroup = InCommand.buffers->GetGroup(1);
+        bufferGroup.Set(0, InCommand.transforms, WGPUShaderStage_Vertex);
+        MeshTransformBuffer const* buff = mesh.transforms->buffer ? mesh.transforms : &ModelDefaults::Get().defaultBuffer;
+        CHECK_ASSERT(!buff->buffer, "Invalid mesh buffer")
+        bufferGroup.Set(1, buff->buffer, buff->count * sizeof(Mat4F), WGPUShaderStage_Vertex);
+        
+        // Bind buffers
+        CHECK_CONTINUE(!InCommand.buffers->Bind(renderPass));
+        
+        // Send mesh data
+        wgpuRenderPassEncoderSetVertexBuffer(renderPass, 0, vb, 0, mesh.lod->vertexCount * mesh.lod->vertexStride);
+        wgpuRenderPassEncoderSetIndexBuffer(renderPass, ib, mesh.lod->indexFormat, 0, mesh.lod->indexCount * mesh.lod->indexStride);
+        
+        // Draw!
+        uint32 instances = buff->count * static_cast<uint32>(InCommand.transforms.size());
+        wgpuRenderPassEncoderDrawIndexed(renderPass, mesh.lod->indexCount, instances, 0, 0, 0);
     }
 }
 
