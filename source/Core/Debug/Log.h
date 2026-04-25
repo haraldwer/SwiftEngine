@@ -26,6 +26,7 @@ namespace Debug
         int filterIndex = 0;
         bool autoscroll = true;
         bool scrollToBottom = true;
+        std::mutex logMutex;
         
         static constexpr int filterStep = 100;
         static constexpr int maxDisplayCount = 300;

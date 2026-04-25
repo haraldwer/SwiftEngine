@@ -4,7 +4,10 @@ bool Rendering::MaterialResource::Load()
 {
     bool load = false;
     if (ShaderResource::Accept(id.Str()))
+    {
         data.Shader = ResShader(id);
+        load = true;
+    }
     else load = PropertyFile::Load();
     
     struct HashData

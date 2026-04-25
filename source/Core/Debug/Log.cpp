@@ -60,15 +60,19 @@ void Debug::Log::DrawPanel()
 
 void Debug::Log::Add(const String &InLog)
 {
+    logMutex.lock();
     logs.push_back(InLog);
     filterIndex++;
     if (CheckFilter(InLog))
         displayLogs.push_back(InLog);
+    logMutex.unlock();
 }
 
 void Debug::Log::Clear()
 {
+    logMutex.lock();
     logs.clear();
+    logMutex.unlock();
     ClearFilter();
 }
 
@@ -125,6 +129,7 @@ void Debug::Log::UpdateFilter()
 {
     // Filter index moves along logs and adds to displayLogs
     // logs and displaylogs should be the same?
+    logMutex.lock();
     displayLogs.reserve(logs.size());
     int startIndex = filterIndex;
     for (int i = startIndex; i < startIndex + filterStep && i < static_cast<int>(logs.size()) && static_cast<int>(displayLogs.size()) < maxDisplayCount; i++)
@@ -134,6 +139,7 @@ void Debug::Log::UpdateFilter()
         if (CheckFilter(log))
             displayLogs.insert(displayLogs.begin(), log);
     }
+    logMutex.unlock();
 }
 
 bool Debug::Log::CheckFilter(const String &InLog) const

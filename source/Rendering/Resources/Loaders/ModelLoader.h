@@ -49,7 +49,6 @@ struct MeshData
 {
     Vector<VertexLayout> vertices;
     Vector<uint32> indices;
-    std::unordered_map<VertexKey, uint32, VertexKeyHash> remap;
 };
 
 
@@ -69,8 +68,6 @@ struct LODData
 
 inline LODData AsyncLoadLOD(const LODLoadParams& InParams)
 {
-    LOG("Loading LOD")
-    
     // Compute LOD level (higher = more reduction)
     const int lodLevel = (InParams.lodIndex == 0) ? 1 : (maxLODLevel / (numGenLODs - InParams.lodIndex + 1));
 
@@ -188,6 +185,6 @@ inline LODData AsyncLoadLOD(const LODLoadParams& InParams)
         fetchRemap.data());
 
     lodVertices.swap(lodVerticesReordered);
-
+    
     return lod;
 }

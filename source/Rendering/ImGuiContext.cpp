@@ -2,7 +2,6 @@
 
 #include "imgui_themes.h"
 #include "Commands/Command.h"
-#include "Commands/CommandList.h"
 #include "Context/Context.h"
 #include "ImGui/imgui.h"
 #include "ImGui/backends/imgui_impl_glfw.h"
@@ -26,7 +25,7 @@ void Rendering::ImGuiContext::Init(Window &InWindow, Context &InContext)
     ImGui::Theme3();
     ImGui::LoadFont(1.0f);
     
-    BeginFrame();
+    BeginFrame(InWindow.Size());
 }
 
 void Rendering::ImGuiContext::Deinit()
@@ -36,10 +35,11 @@ void Rendering::ImGuiContext::Deinit()
     ImGui::DestroyContext();
 }
 
-void Rendering::ImGuiContext::BeginFrame()
+void Rendering::ImGuiContext::BeginFrame(Vec2I InSize)
 {
     ImGui_ImplWGPU_NewFrame();
     ImGui_ImplGlfw_NewFrame();
+    ImGui::GetIO().DisplaySize = ImVec2((float)InSize.x, (float)InSize.y);
     ImGui::NewFrame();
 }
 

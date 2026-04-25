@@ -12,8 +12,6 @@ namespace Rendering
         RenderTarget msaaNormals;
         RenderTarget msaaDepth;
         
-        RenderTarget frame;
-        RenderTarget normals;
         RenderTarget ssao;
     };
 }

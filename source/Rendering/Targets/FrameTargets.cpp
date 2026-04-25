@@ -6,8 +6,10 @@ void Rendering::FrameTargets::Init(const Vec2I &InSize)
         .size = Vec3I(InSize.x, InSize.y, 0),
         .multisample = 4
     };
-    
     msaaFrame.Init(msaaDesc);
+    
+    // Resolve normals and depth manually!
+    msaaDesc.msaaResolve = false; 
     msaaNormals.Init(msaaDesc);
     msaaDepth.Init({ 
         .size = Vec3I(InSize.x, InSize.y, 0),
@@ -16,8 +18,6 @@ void Rendering::FrameTargets::Init(const Vec2I &InSize)
         .multisample = 4
     });
     
-    frame.Init({ .size = Vec3I(InSize.x, InSize.y, 0) });
-    normals.Init({ .size = Vec3I(InSize.x, InSize.y, 0) });
     ssao.Init({ .size = Vec3I(InSize.x, InSize.y, 0) });
 }
 
@@ -27,7 +27,5 @@ void Rendering::FrameTargets::Deinit()
     msaaNormals.Deinit();
     msaaDepth.Deinit();
     
-    frame.Deinit();
-    normals.Deinit();
     ssao.Deinit();
 }

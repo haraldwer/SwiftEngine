@@ -15,7 +15,7 @@ namespace Rendering
 public:
         static void Init(Window& InWindow, Context& InContext);
         static void Deinit();
-        static void BeginFrame();
+        static void BeginFrame(Vec2I InSize);
         static void EndFrame();
 
         static Command Command(RenderTarget& InTarget);

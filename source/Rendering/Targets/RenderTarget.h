@@ -25,6 +25,7 @@ namespace Rendering
             WGPUTextureFormat format = WGPUTextureFormat_RGBA16Float;
             TextureType type = TextureType::TEXTURE_2D;
             int multisample = 0;
+            bool msaaResolve = true;
             
             // Also sampler parameters? 
             // Or should this be passed separately?
@@ -44,6 +45,8 @@ namespace Rendering
         WGPUTextureDimension GetDimension() const;
         WGPUTextureViewDimension GetViewDimension() const;
         
+        WGPUTexture msaaTexture = {};
+        WGPUTextureView msaaView = {};
         WGPUTexture texture = {};
         WGPUTextureView view = {};
         Desc descriptor = {};

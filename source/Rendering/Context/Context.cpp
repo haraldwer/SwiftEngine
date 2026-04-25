@@ -143,7 +143,7 @@ void Rendering::Context::InitDevice()
     // Get device
     LOG("Requesting device...");
     WGPUDeviceDescriptor deviceDesc {};
-    deviceDesc.label = WGPUStringView("Default");
+    deviceDesc.label = ToStr("Default");
     WGPULimits requiredLimits = adapterLimits;
     
     requiredLimits.maxBufferSize                   = std::min(requiredLimits.maxBufferSize,                   (uint64_t)512  * 1024 * 1024);
@@ -154,7 +154,7 @@ void Rendering::Context::InitDevice()
     requiredLimits.maxComputeWorkgroupStorageSize  = std::min(requiredLimits.maxComputeWorkgroupStorageSize,  (uint32_t)16   * 1024);
     
     deviceDesc.requiredLimits = &requiredLimits;
-    deviceDesc.defaultQueue.label = WGPUStringView("Default queue");
+    deviceDesc.defaultQueue.label = ToStr("Default queue");
     deviceDesc.deviceLostCallbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
     deviceDesc.deviceLostCallbackInfo.callback = [](
         WGPUDevice const* InDevice,
@@ -175,6 +175,7 @@ void Rendering::Context::InitDevice()
         void* InData2)
     {
         LOG("Device error: ", InType, " | ", ToStr(InMessage));
+        Get().deviceInvalid = true;
     };
     
     bool response = false;
@@ -225,6 +226,15 @@ void Rendering::Context::InitDevice()
         LOG(" - maxTextureArrayLayers: ", deviceLimits.maxTextureArrayLayers);
         LOG(" - maxVertexAttributes: ", deviceLimits.maxVertexAttributes);
     }
+}
+
+
+bool Rendering::Context::CheckDeviceValidation()
+{
+    if (!deviceInvalid)
+        return true;
+    deviceInvalid = false;
+    return false;
 }
 
 void Rendering::Context::InitQueue()
@@ -361,6 +371,7 @@ WGPUBuffer Rendering::Context::CreateBuffer(WGPUBufferDescriptor InDesc) const
     RN_PROFILE();
     InDesc.size = GetAlignedBufferSize(InDesc.size);
     InDesc.usage |= WGPUBufferUsage_CopyDst;
+    InDesc.mappedAtCreation = false;
     auto buffer = wgpuDeviceCreateBuffer(device, &InDesc);
     CHECK_ASSERT(!buffer, "Failed to create buffer");
     return buffer;
@@ -428,7 +439,7 @@ void Rendering::Context::Submit(const Vector<WGPUCommandBuffer> &InCommands) con
     wgpuQueueSubmit(queue, InCommands.size(), InCommands.data());
 }
 
-void Rendering::Context::Poll()
+void Rendering::Context::Poll(bool InWait)
 {
     RN_PROFILE();
     

@@ -33,10 +33,10 @@ void Rendering::BufferGroup::Set(const int InSlot, const void* InData, const uin
         // Also recreate buffer
         if (uniform.buffer)
             wgpuBufferDestroy(uniform.buffer);
-        WGPUBufferDescriptor desc;
+        WGPUBufferDescriptor desc = {};
         desc.size = InSize;
         desc.usage = WGPUBufferUsage_Uniform;
-        desc.label = WGPUStringView("Uniform buffer"); // TODO: Make unique
+        desc.label = ToStr("Uniform buffer"); // TODO: Make unique
         uniform.buffer = Context::Get().CreateBuffer(desc);
         
         binding.binding = InSlot;  // Index of bidning
@@ -141,15 +141,22 @@ void Rendering::BufferGroup::Set(const int InSlot, const WGPUTextureView& InView
 void Rendering::BufferGroup::Set(const int InSlot, const RenderTarget &InTexture, const WGPUShaderStage InVisibility)
 {
     WGPUTextureBindingLayout layout;
-    layout.sampleType = WGPUTextureSampleType_Float;
     if (InTexture.descriptor.type == TextureType::DEPTH)
         layout.sampleType = WGPUTextureSampleType_Depth;
-    else if (InTexture.descriptor.multisample > 1)
-        layout.sampleType = WGPUTextureSampleType_UnfilterableFloat;
-    layout.multisampled = InTexture.descriptor.multisample > 1 ?
-        WGPUOptionalBool_True : WGPUOptionalBool_False;
     layout.viewDimension = InTexture.GetViewDimension();
-    Set(InSlot, InTexture.view, layout, InVisibility);
+    layout.multisampled = WGPUOptionalBool_False;
+    layout.sampleType = WGPUTextureSampleType_Float;
+    
+    WGPUTextureView view = InTexture.view;
+    if (InTexture.descriptor.multisample > 1 && !InTexture.descriptor.msaaResolve)
+    {
+        view = InTexture.msaaView;
+        layout.multisampled = WGPUOptionalBool_True;
+        if (InTexture.descriptor.type != TextureType::DEPTH)
+            layout.sampleType = WGPUTextureSampleType_UnfilterableFloat;
+    }
+    
+    Set(InSlot, view, layout, InVisibility);
 }
 
 void Rendering::BufferGroup::Clear()
@@ -246,10 +253,16 @@ void Rendering::BufferCollection::Clear()
     }
 }
 
-void Rendering::BufferCollection::Bind(const WGPURenderPassEncoder& InEncoder) const
+bool Rendering::BufferCollection::Bind(const WGPURenderPassEncoder& InEncoder) const
 {
     CHECK_ASSERT(!InEncoder, "Invalid encoder");
     for (int i = 0; i < bindings.size(); i++)
+    {
         if (auto& binding = bindings.at(i))
+        {
             wgpuRenderPassEncoderSetBindGroup(InEncoder, i, binding, 0, nullptr);
+            CHECK_RETURN_LOG(!Context::Get().CheckDeviceValidation(), "Device validation failed", false);
+        }
+    }
+    return true;
 }

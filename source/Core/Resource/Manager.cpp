@@ -4,17 +4,17 @@
 #include "Utility/Collections/SortedInsert.h"
 #include "ImGui/imgui.h"
 
-Resource::ImplBase* Resource::Manager::GetResource(const ID& InID)
+Resource::ImplBase* Resource::Manager::GetResource(const uint32 InHash)
 {
-    const auto find = resources.find(InID.Hash());
+    const auto find = resources.find(InHash);
     if (find == resources.end())
         return nullptr; 
     return find->second;
 }
 
-void Resource::Manager::Register(ImplBase* InResource, const ID& InID)
+void Resource::Manager::Register(ImplBase* InResource, const uint32 InHash)
 {
-    resources[InID.Hash()] = InResource;
+    resources[InHash] = InResource;
 }
 
 void Resource::Manager::Frame()

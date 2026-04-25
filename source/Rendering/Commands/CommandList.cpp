@@ -13,11 +13,11 @@ void Rendering::CommandList::Begin(const String &InName)
     
     // Create encoder
     WGPUCommandEncoderDescriptor encoderDesc = {};
-    encoderDesc.label = WGPUStringView(("Encoder: " + workingName).c_str());
+    encoderDesc.label = ToStr("Encoder: " + workingName);
     encoder = Context::Get().CreateEncoder(encoderDesc);
     
     // Add instructions
-    wgpuCommandEncoderInsertDebugMarker(encoder, WGPUStringView(("Begin: " + workingName).c_str()));
+    wgpuCommandEncoderInsertDebugMarker(encoder, ToStr("Begin: " + workingName));
 }
 
 void Rendering::CommandList::Add(const Command& InCommand)
@@ -26,22 +26,38 @@ void Rendering::CommandList::Add(const Command& InCommand)
     CHECK_ASSERT(InCommand.targets.empty(), "No targets for command");
     
     // Create attachments and views
+    Vec3I maxSize;
     Vector<WGPURenderPassColorAttachment> attachments;
-    Vector<WGPUTextureView> views;
     attachments.reserve(InCommand.targets.size());
-    views.reserve(InCommand.targets.size());
     for (auto& target : InCommand.targets)
     {
         CHECK_ASSERT(!target, "Invalid target");
-        CHECK_ASSERT(!target->view, "Invalid view");
-        views.push_back(target->view);
-        
-        // Create attachment using textureView
         WGPURenderPassColorAttachment& attachment = attachments.emplace_back();
-        attachment.view = target->view;
-        attachment.resolveTarget = nullptr;
+        
+        if (target->descriptor.multisample > 1 && InCommand.multisample)
+        {
+            if (target->descriptor.msaaResolve)
+            {
+                attachment.view = target->msaaView;
+                attachment.resolveTarget = target->view;
+                attachment.loadOp = WGPULoadOp_Clear;
+                attachment.storeOp = WGPUStoreOp_Discard;
+            }
+            else
+            {
+                attachment.view = target->msaaView;
+                attachment.resolveTarget = nullptr;
+                attachment.storeOp = WGPUStoreOp_Store;
+            }
+        }
+        else
+        {
+            attachment.view = target->view;
+            attachment.resolveTarget = nullptr;
+            attachment.storeOp = WGPUStoreOp_Store;
+        }
+        
         attachment.loadOp = InCommand.clear ? WGPULoadOp_Clear : WGPULoadOp_Load;
-        attachment.storeOp = WGPUStoreOp_Store;
         attachment.clearValue = { 
             InCommand.clearColor.x, 
             InCommand.clearColor.y, 
@@ -51,27 +67,45 @@ void Rendering::CommandList::Add(const Command& InCommand)
     #ifndef WEBGPU_BACKEND_WGPU
         attachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
     #endif
+        
+        maxSize = Vec3I::Max(maxSize, target->GetSize());
     }
     
     WGPURenderPassDepthStencilAttachment depthAttachment;
     if (InCommand.depthTarget)
     {
         CHECK_ASSERT(!InCommand.depthTarget->view, "Invalid depth view");
-        depthAttachment.view = InCommand.depthTarget->view;
-        depthAttachment.depthLoadOp = InCommand.clearDepth ? WGPULoadOp_Clear : WGPULoadOp_Load;
-        depthAttachment.depthStoreOp = InCommand.writeDepth ? WGPUStoreOp_Store : WGPUStoreOp_Discard;
+    
+        if (InCommand.depthTarget->descriptor.multisample > 1)
+        {
+            depthAttachment.view = InCommand.depthTarget->msaaView;
+            depthAttachment.depthStoreOp = WGPUStoreOp_Store;
+        }
+        else
+        {
+            depthAttachment.view = InCommand.depthTarget->view;
+            depthAttachment.depthStoreOp = InCommand.writeDepth ? WGPUStoreOp_Store : WGPUStoreOp_Discard;
+        }
+    
+        depthAttachment.depthLoadOp     = InCommand.clearDepth ? WGPULoadOp_Clear : WGPULoadOp_Load;
         depthAttachment.depthClearValue = 1.0f;
-        depthAttachment.depthReadOnly = !InCommand.writeDepth;
-        // TODO: If depthReadOnly, then depthLoadOp cannot be LoadOp::Clear
+        depthAttachment.depthReadOnly   = !InCommand.writeDepth;
+    
+        // Stencil - set to undefined if not using stencil
+        depthAttachment.stencilLoadOp  = WGPULoadOp_Undefined;
+        depthAttachment.stencilStoreOp = WGPUStoreOp_Undefined;
+        depthAttachment.stencilReadOnly = true;
     }
 
-    String name = "RenderPass: " + InCommand.name;
     WGPURenderPassDescriptor renderPassDescriptor = {};
-    renderPassDescriptor.label = WGPUStringView(name.c_str());
+    renderPassDescriptor.label = ToStr("RenderPass: " + InCommand.name);
     renderPassDescriptor.colorAttachmentCount = attachments.size();
     renderPassDescriptor.colorAttachments = attachments.data();
     renderPassDescriptor.depthStencilAttachment = InCommand.depthTarget ? &depthAttachment : nullptr;
     WGPURenderPassEncoder renderPass = wgpuCommandEncoderBeginRenderPass(encoder, &renderPassDescriptor);
+    
+    wgpuRenderPassEncoderSetViewport(renderPass, 0, 0, maxSize.x, maxSize.y, 0.0f, 1.0f);
+    wgpuRenderPassEncoderSetScissorRect(renderPass, 0, 0, maxSize.x, maxSize.y);
     
     InCommand.model.Identifier().IsValid() ? 
         RenderModel(InCommand, renderPass) : 
@@ -118,7 +152,7 @@ void Rendering::CommandList::RenderModel(const Command &InCommand, const WGPURen
         
     // Bind buffers
     if (InCommand.buffers)
-        InCommand.buffers->Bind(renderPass);
+        CHECK_RETURN(!InCommand.buffers->Bind(renderPass));
         
     // For now, render all meshes
     // In the future: Combine mesh buffers? 
@@ -159,7 +193,7 @@ void Rendering::CommandList::RenderFullscreen(const Command &InCommand, const WG
     CHECK_RETURN(!pipeline);
     
     if (InCommand.buffers)
-        InCommand.buffers->Bind(renderPass);
+        CHECK_RETURN(!InCommand.buffers->Bind(renderPass));
     
     wgpuRenderPassEncoderSetPipeline(renderPass, *pipeline);
     wgpuRenderPassEncoderDraw(renderPass, 3, 1, 0, 0);
@@ -168,10 +202,10 @@ void Rendering::CommandList::RenderFullscreen(const Command &InCommand, const WG
 void Rendering::CommandList::End()
 {
     RN_PROFILE();
-    wgpuCommandEncoderInsertDebugMarker(encoder, WGPUStringView(("End: " + workingName).c_str()));
+    wgpuCommandEncoderInsertDebugMarker(encoder, ToStr("End: " + workingName));
     
     WGPUCommandBufferDescriptor commandBufferDesc;
-    commandBufferDesc.label = WGPUStringView(("Command: " + workingName).c_str());
+    commandBufferDesc.label = ToStr("Command: " + workingName);
     commands.emplace_back() = wgpuCommandEncoderFinish(encoder, &commandBufferDesc);
     wgpuCommandEncoderRelease(encoder);
     encoder = {};

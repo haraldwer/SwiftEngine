@@ -28,7 +28,7 @@ void Rendering::SceneRenderer::Render(CommandList& InOutList, Viewport& InMainVi
         
         Command command("MainCommand");
         command.material = rm;
-        command.targets = { &targets.msaaFrame };
+        command.targets = { &targets.msaaFrame, &targets.msaaNormals };
         command.clear = true;
         command.clearColor = { 0.1f, 0.1f, 0.1f, 1.0f };
         command.depthTarget = &targets.msaaDepth;

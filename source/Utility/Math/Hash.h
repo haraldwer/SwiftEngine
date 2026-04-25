@@ -51,5 +51,10 @@ namespace Utility
 		}
 		return val;
 	}
+
+	inline uint32 HashCombine(const uint32 InA, const uint32 InB) 
+	{
+		return InA ^ (InB + 0x9e3779b9 + (InA << 6) + (InA >> 2));
+	}
 }
 	

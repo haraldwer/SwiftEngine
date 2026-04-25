@@ -11,8 +11,8 @@ namespace Resource
     {
     public:
 
-        ImplBase* GetResource(const ID& InID);
-        void Register(ImplBase* InResource, const ID& InID);
+        ImplBase* GetResource(uint32 InHash);
+        void Register(ImplBase* InResource, uint32 InHash);
         
         void Frame();
         void Deinit();

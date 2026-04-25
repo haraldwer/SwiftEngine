@@ -22,20 +22,16 @@ void Rendering::PipelineCache::Deinit()
 
 uint32 GetHash(const Rendering::PipelineDescriptor& InData)
 {
-    struct FullHash
-    {
-        uint32 materialHash = 0; 
-        uint32 meshHash = 0;
-        uint32 targetHash = 0; 
-        uint32 staticHash = 0;
-        uint32 layoutHash = 0;
-    } fullHash;
-    fullHash.materialHash = InData.material->Hash();
-    fullHash.meshHash = InData.meshState ? InData.meshState->hash : 0;
-    fullHash.targetHash = Utility::Hash(InData.targetFormats);
-    fullHash.staticHash = Utility::Hash(InData.data);
-    fullHash.layoutHash = InData.layout ? InData.layout->hash : 0;
-    return Utility::Hash(fullHash);
+    uint32 hash = 0;
+    hash = InData.material->Hash();
+    hash = Utility::HashCombine(hash, Utility::Hash(InData.material->GetEditTime()));
+    hash = Utility::HashCombine(hash, Utility::Hash(InData.targetFormats));
+    hash = Utility::HashCombine(hash, Utility::Hash(InData.data));
+    if (InData.meshState)
+        hash = Utility::HashCombine(hash, InData.meshState->hash);
+    if (InData.layout)
+        hash = Utility::HashCombine(hash, Utility::Hash(InData.layout->hash));
+    return hash;
 }
 
 WGPURenderPipeline* Rendering::PipelineCache::GetPipeline(const PipelineDescriptor& InData)
@@ -80,15 +76,15 @@ bool Rendering::PipelineCache::CreatePipeline(const PipelineDescriptor& InData, 
     vertexState.buffers = nullptr;
     vertexState.constantCount = 0;
     vertexState.constants = nullptr;
-    vertexState.entryPoint = WGPUStringView("vs_main");
+    vertexState.entryPoint = ToStr("vs_main");
     vertexState.module = shaderResource->shader;
     
     // Primitive
     primitiveState.nextInChain = nullptr;
-    primitiveState.cullMode = WGPUCullMode_Back;
+    primitiveState.cullMode = WGPUCullMode_None;
     primitiveState.frontFace = WGPUFrontFace_CCW;
-    primitiveState.stripIndexFormat = WGPUIndexFormat_Uint32;
-    primitiveState.topology = WGPUPrimitiveTopology_LineList;
+    primitiveState.stripIndexFormat = WGPUIndexFormat_Undefined;
+    primitiveState.topology = WGPUPrimitiveTopology_TriangleList;
     primitiveState.unclippedDepth = false;
     
     if (InData.meshState)
@@ -104,7 +100,7 @@ bool Rendering::PipelineCache::CreatePipeline(const PipelineDescriptor& InData, 
     fragmentState.constants = nullptr;
     fragmentState.targetCount = 0;
     fragmentState.targets = nullptr;
-    fragmentState.entryPoint = WGPUStringView("fs_main");
+    fragmentState.entryPoint = ToStr("fs_main");
     fragmentState.module = shaderResource->shader;
     
     WGPUBlendState blendState{};
@@ -152,8 +148,10 @@ bool Rendering::PipelineCache::CreatePipeline(const PipelineDescriptor& InData, 
     desc.multisample = multisampleState;
     desc.layout = InData.layout ? InData.layout->layout : nullptr;
     
-    OutPipeline = Context::Get().CreatePipeline(desc);
+    auto& c = Context::Get();
+    OutPipeline = c.CreatePipeline(desc);
     CHECK_ASSERT(!OutPipeline, "Failed to create pipeline");
+    CHECK_RETURN_LOG(!c.CheckDeviceValidation(), "Failed to create pipeline", false);
     LOG("Pipeline created: ", label);
     return true;
 }

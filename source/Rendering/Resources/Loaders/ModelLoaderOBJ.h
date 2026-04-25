@@ -9,9 +9,9 @@ struct OBJModelLoadResult
     bool success = false;
 };
 
-inline OBJModelLoadResult AsyncLoadModel(const Resource::ID& InID)
+inline OBJModelLoadResult AsyncLoadModelOBJ(const Resource::ID& InID)
 {
-    LOG("Loading model")
+    LOG("Loading model ", InID.Str())
     OBJModelLoadResult result;
     result.reader = new tinyobj::ObjReader();
     auto ptr = result.reader.Get();
@@ -22,15 +22,16 @@ inline OBJModelLoadResult AsyncLoadModel(const Resource::ID& InID)
     return result;
 }
 
-struct ObjMeshLoadParams
+struct OBJMeshLoadParams
 {
     ObjectPtr<tinyobj::ObjReader> reader;
     Resource::ID id;
     int shapeIndex = 0;
 };
 
-inline ObjectPtr<MeshData> AsyncLoadMesh(const ObjMeshLoadParams& InParams)
+inline ObjectPtr<MeshData> AsyncLoadMeshOBJ(const OBJMeshLoadParams& InParams)
 {
+    LOG("Loading mesh ", InParams.shapeIndex)
     auto& shapes = InParams.reader->GetShapes();
     const auto& shapeMesh = shapes.at(InParams.shapeIndex).mesh;
     if (shapeMesh.indices.empty())
@@ -40,7 +41,7 @@ inline ObjectPtr<MeshData> AsyncLoadMesh(const ObjMeshLoadParams& InParams)
     ObjectPtr result = new MeshData();
     auto& vertices = result->vertices;
     auto& indices = result->indices;
-    auto& remap = result->remap;
+    std::unordered_map<VertexKey, uint32, VertexKeyHash> remap;
     vertices.reserve(shapeMesh.indices.size());
     indices.reserve(shapeMesh.indices.size());
     remap.reserve(shapeMesh.indices.size());
@@ -98,5 +99,6 @@ inline ObjectPtr<MeshData> AsyncLoadMesh(const ObjMeshLoadParams& InParams)
         }
         indexOffset += static_cast<size_t>(fv);
     }
+    LOG("Mesh loaded!")
     return result;
 }

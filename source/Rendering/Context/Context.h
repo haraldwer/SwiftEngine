@@ -29,9 +29,11 @@ namespace Rendering
         WGPUPipelineLayout CreateLayout(const Vector<WGPUBindGroupLayout>& InLayoutGroups) const;
         WGPUBindGroup CreateBindGroup(WGPUBindGroupLayout InLayout, const Vector<WGPUBindGroupEntry>& InEntries) const;
         void Submit(const Vector<WGPUCommandBuffer>& InCommands) const;
-        void Poll();
+        void Poll(bool InWait = false);
 
         WGPUTexture CreateTexture(const WGPUTextureDescriptor& InDesc) const;
+        
+        bool CheckDeviceValidation();
 
 
     private:
@@ -53,5 +55,7 @@ namespace Rendering
         WGPUSupportedFeatures adapterFeatures;
         WGPUAdapterInfo adapterInfo;
         WGPUSurfaceCapabilities surfaceCapabilities;
+        
+        bool deviceInvalid = false;
     };
 }

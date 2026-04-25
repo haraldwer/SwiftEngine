@@ -19,21 +19,26 @@ bool Rendering::ModelResource::Load()
     asyncLoadStarted = true;
     loadCount++;
     LOG("Loading model: ", id.Str());
-    Tasks::Enqueue<Resource::ID, ModelLoadResult>(id, &AsyncLoadModel);
+    if (id.Str().ends_with(".obj"))
+        Tasks::Enqueue<Resource::ID, OBJModelLoadResult>(id, &AsyncLoadModelOBJ);
+    else if (id.Str().ends_with(".gltf"))
+        Tasks::Enqueue<Resource::ID, GLTFModelLoadResult>(id, &AsyncLoadModelGLTF);
+    else
+    {
+        LOG("Unknown model type: " + id.Str());
+        return false;
+    }
     return true;
 }
 
 void Rendering::ModelResource::ContinueLoad()
 {
     if (loadCount == 0)
-    {
-        LOG("Load finished!")
         return;
-    }
     if (!asyncLoadStarted)
         return;
     
-    Tasks::Consume<Resource::ID, ModelLoadResult>([&](const Resource::ID& InID, const ModelLoadResult& InResult)
+    Tasks::Consume<Resource::ID, OBJModelLoadResult>([&](const Resource::ID& InID, const OBJModelLoadResult& InResult)
     {
         CHECK_RETURN(InID != id, false);
         loadCount--;
@@ -51,16 +56,73 @@ void Rendering::ModelResource::ContinueLoad()
             
             // Start new tasks
             loadCount++;
-            MeshLoadParams params;
+            OBJMeshLoadParams params;
             params.reader = InResult.reader;
             params.id = id;
             params.shapeIndex = i;
-            Tasks::Enqueue<MeshLoadParams, ObjectPtr<MeshData>>(params, &AsyncLoadMesh);
+            Tasks::Enqueue<OBJMeshLoadParams, ObjectPtr<MeshData>>(params, &AsyncLoadMeshOBJ);
         }
         return true;
     }, 1);
     
-    Tasks::Consume<MeshLoadParams, ObjectPtr<MeshData>>([&](const MeshLoadParams& InParams, const ObjectPtr<MeshData>& InData)
+    Tasks::Consume<Resource::ID, GLTFModelLoadResult>([&](const Resource::ID& InID, const GLTFModelLoadResult& InResult)
+    {
+        CHECK_RETURN(InID != id, false);
+        loadCount--;
+            
+        CHECK_RETURN_LOG(!InResult.success, "Failed to load model: " + id.Str(), false)
+        CHECK_RETURN_LOG(!InResult.reader, "Reader invalid: " + id.Str(), false)
+
+        LoadState();
+        auto& shapes = InResult.reader->meshes;
+        meshes.resize(shapes.size());
+            
+        for (int i = 0; i < shapes.size(); i++)
+        {
+            meshes.at(i).lods.resize(numGenLODs + 1);
+                
+            // Start new tasks
+            loadCount++;
+            GLTFMeshLoadParams params;
+            params.reader = InResult.reader;
+            params.id = id;
+            params.shapeIndex = i;
+            Tasks::Enqueue<GLTFMeshLoadParams, ObjectPtr<MeshData>>(params, &AsyncLoadMeshGLTF);
+        }
+        
+        // Possibly also load textures?
+        return true;
+    }, 1);
+    
+    Tasks::Consume<OBJMeshLoadParams, ObjectPtr<MeshData>>([&](const OBJMeshLoadParams& InParams, const ObjectPtr<MeshData>& InData)
+    {
+        CHECK_RETURN(InParams.id != id.Str(), false);
+        loadCount--;
+        CHECK_RETURN_LOG(!InData, "Data invalid: " + InParams.id.Str(), false);
+        
+        if (InData->vertices.empty() || InData->indices.empty())
+        {
+            LOG("Failed to load shape: " + id.Str() + ":" + Utility::ToStr(InParams.shapeIndex));
+            return true;
+        }
+        
+        CHECK_ASSERT(InParams.shapeIndex >= meshes.size(), "Invalid shapeIndex")
+        for (int lod = 0; lod <= numGenLODs; lod++)
+        {
+            loadCount++;
+            LODLoadParams params { 
+                id, 
+                InParams.shapeIndex,
+                lod,
+                InData
+            };
+            Tasks::Enqueue<LODLoadParams, LODData>(params, &AsyncLoadLOD);
+        }
+        return true;
+    }, 1);
+    
+
+    Tasks::Consume<GLTFMeshLoadParams, ObjectPtr<MeshData>>([&](const GLTFMeshLoadParams& InParams, const ObjectPtr<MeshData>& InData)
     {
         CHECK_RETURN(InParams.id != id.Str(), false);
         loadCount--;
@@ -104,7 +166,7 @@ void Rendering::ModelResource::ContinueLoad()
         lod.indexCount = static_cast<uint32>(indices.size());
         lod.vertexStride = sizeof(VertexLayout);
         
-        WGPUBufferDescriptor vertexBufferDesc;
+        WGPUBufferDescriptor vertexBufferDesc = {};
         vertexBufferDesc.label = ToStr("LOD" + Utility::ToStr(InParams.lodIndex + 1) + " VB: " + id.Str());
         vertexBufferDesc.size = vertices.size() * sizeof(VertexLayout);
         vertexBufferDesc.usage = WGPUBufferUsage_Vertex;
@@ -133,7 +195,7 @@ void Rendering::ModelResource::ContinueLoad()
         size_t sizeBytes = (canUseUint16 ? indices16.size() : indices.size()) * stride;
         lod.indexFormat = canUseUint16 ? WGPUIndexFormat_Uint16 : WGPUIndexFormat_Uint32;
         lod.indexStride = stride;
-        WGPUBufferDescriptor indexBufferDesc;
+        WGPUBufferDescriptor indexBufferDesc = {};
         indexBufferDesc.label = ToStr("LOD" + Utility::ToStr(InParams.lodIndex + 1 + 1) + ibType + id.Str());
         indexBufferDesc.size = sizeBytes;
         indexBufferDesc.usage = WGPUBufferUsage_Index;
@@ -215,9 +277,9 @@ bool Rendering::ModelResource::Edit(const String &InName, uint32 InOffset)
 
 const Rendering::MeshState* Rendering::ModelResource::GetMeshState()
 {
+    ContinueLoad();
     if (state.hash > 0)
         return &state;
-    ContinueLoad();
     return nullptr;
 }
 

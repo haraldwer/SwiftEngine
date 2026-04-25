@@ -19,12 +19,13 @@ void Rendering::RenderTarget::Init(const Desc& InDesc)
     desc.dimension = GetDimension();
     desc.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding;
     desc.format = descriptor.format;
-    desc.sampleCount = Utility::Math::Clamp(descriptor.multisample, 1, 8);
+    desc.sampleCount = 1;
     desc.mipLevelCount = 1;
-    texture = Context::Get().CreateTexture(desc);
+    if (descriptor.msaaResolve || descriptor.multisample <= 1)
+        texture = Context::Get().CreateTexture(desc);
     
     WGPUTextureViewDescriptor viewDesc = {};
-    viewDesc.label = WGPUStringView("RenderTarget texture view");
+    viewDesc.label = ToStr("RenderTarget texture view");
     viewDesc.format = descriptor.format;
     viewDesc.baseMipLevel = 0;
     viewDesc.mipLevelCount = 1;
@@ -33,8 +34,21 @@ void Rendering::RenderTarget::Init(const Desc& InDesc)
     viewDesc.aspect = descriptor.type == TextureType::DEPTH ? 
          WGPUTextureAspect_DepthOnly : WGPUTextureAspect_All;
     viewDesc.dimension = GetViewDimension();
-    view = wgpuTextureCreateView(texture, &viewDesc);
-    CHECK_ASSERT(!view, "Failed to create view");
+    if (descriptor.msaaResolve || descriptor.multisample <= 1)
+        view = wgpuTextureCreateView(texture, &viewDesc);
+    
+    // Also create msaa tex and view
+    if (descriptor.multisample > 1)
+    {
+        WGPUTextureDescriptor msaaDesc = desc;
+        msaaDesc.sampleCount = Utility::Math::Clamp(descriptor.multisample, 1, 8);
+        msaaDesc.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding;
+        msaaTexture = Context::Get().CreateTexture(msaaDesc);
+        
+        WGPUTextureViewDescriptor msaaViewDesc = viewDesc;
+        msaaViewDesc.label = ToStr("RenderTarget msaa texture view");
+        msaaView = wgpuTextureCreateView(msaaTexture, &msaaViewDesc);
+    }
 }
 
 void Rendering::RenderTarget::Init(const WGPUTexture& InTexture)
@@ -47,13 +61,13 @@ void Rendering::RenderTarget::Init(const WGPUTexture& InTexture)
         static_cast<int>(wgpuTextureGetDepthOrArrayLayers(InTexture))
     };
     descriptor.format = wgpuTextureGetFormat(InTexture);
-    descriptor.multisample = wgpuTextureGetSampleCount(InTexture) > 0;
+    descriptor.multisample = wgpuTextureGetSampleCount(InTexture);
     descriptor.type = TextureType::TEXTURE_2D; // Assume tex2D
     
     texture = InTexture;
     
     WGPUTextureViewDescriptor viewDesc = {};
-    viewDesc.label = WGPUStringView("RenderTarget texture view");
+    viewDesc.label = ToStr("RenderTarget texture view");
     viewDesc.format = descriptor.format;
     viewDesc.baseMipLevel = 0;
     viewDesc.mipLevelCount = 1;
@@ -73,6 +87,15 @@ void Rendering::RenderTarget::Deinit()
         wgpuTextureDestroy(texture);
     view = {};
     texture = {};
+    if (descriptor.multisample > 1)
+    {
+        if (msaaView)
+            wgpuTextureViewRelease(msaaView);
+        if (msaaTexture)
+            wgpuTextureDestroy(msaaTexture);
+        msaaView = {};
+        msaaTexture = {};
+    }
     descriptor = {};
 }
 

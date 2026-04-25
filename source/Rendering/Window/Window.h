@@ -19,8 +19,12 @@ namespace Rendering
         void Present(bool& InRun);
 
         Vec2I Size() const;
+        void RequestResize(int width, int height);
 
     private:
+        Vec2I pendingSize;
+        void TryResize();
+        
         WindowConfig config = {};
         WindowHandle window = nullptr;
         Input input = {};

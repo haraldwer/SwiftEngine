@@ -11,5 +11,5 @@ const char *Rendering::ToStr(const WGPUStringView &InStr)
 
 WGPUStringView Rendering::ToStr(const String &InStr)
 {
-    return WGPUStringView(InStr.c_str());
+    return WGPUStringView(InStr.c_str(), InStr.length());
 }

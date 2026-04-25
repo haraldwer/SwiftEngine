@@ -16,5 +16,5 @@ void Rendering::Viewport::Resize(const Vec2I &InSize)
 {
     CHECK_RETURN(size == InSize);
     Deinit();
-    Init(size);
+    Init(InSize);
 }

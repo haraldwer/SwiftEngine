@@ -9,7 +9,7 @@ namespace Resource
     public:
         virtual ~BaseRef() {}
     protected:
-        ImplBase* Register(const ID& InID);
+        ImplBase* Register(const ID& InID, Utility::TypeHash InTypeHash);
         virtual ImplBase* New(const ID& InID) { return nullptr; }
     };
     
@@ -26,7 +26,7 @@ namespace Resource
         {
             CHECK_RETURN(InID.Str().empty());
             CHECK_RETURN(!InID.Unique() && !T::Accept(InID.Str()))
-            ptr = reinterpret_cast<Impl<T>*>(Register(InID));
+            ptr = reinterpret_cast<Impl<T>*>(Register(InID, Utility::Type::GetHash<T>()));
             Increment(); 
         }
         

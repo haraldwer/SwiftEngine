@@ -2,8 +2,15 @@
 
 #define GLFW_INCLUDE_NONE
 #include "GLFW/glfw3.h"
+#include "Rendering/Manager.h"
 
 #include "Rendering/Context/Context.h"
+
+// The callback signature must match exactly
+static void OnFramebufferResize(GLFWwindow* window, int width, int height)
+{
+    Rendering::Manager::Get().GetWindow().RequestResize(width, height);
+}
 
 void Rendering::Window::Open(const WindowConfig& InConfig)
 {
@@ -12,6 +19,7 @@ void Rendering::Window::Open(const WindowConfig& InConfig)
     auto res = InConfig.Resolution.Get();
     CHECK_ASSERT(res.Min() <= 0, "Invalid resolution");
     config = InConfig;
+    pendingSize = res;
     
     LOG("Creating glfw window")
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -26,8 +34,13 @@ void Rendering::Window::Open(const WindowConfig& InConfig)
     
     surface = Context::Get().CreateWindowSurface(*this);
     
+#ifndef EMSCRIPTEN
     // TODO: Handle glfw events!
     // Window resizing etc
+    glfwSetFramebufferSizeCallback(static_cast<GLFWwindow*>(window), OnFramebufferResize);
+#else
+    
+#endif
 }
 
 void Rendering::Window::Close()
@@ -44,6 +57,7 @@ void Rendering::Window::Close()
 Rendering::RenderTarget& Rendering::Window::BeginFrame()
 {
     RN_PROFILE();
+    
     wgpuSurfaceGetCurrentTexture(surface, &surfaceTexture);
     CHECK_ASSERT(surfaceTexture.status > WGPUSurfaceGetCurrentTextureStatus_Timeout, "Failed to get surface texture");
     
@@ -71,6 +85,8 @@ void Rendering::Window::Present(bool& InRun)
         InRun = false;
 #endif
     
+    TryResize();
+    
     // Release surface texture
     target.Deinit();
     surfaceTexture.texture = {};
@@ -79,4 +95,17 @@ void Rendering::Window::Present(bool& InRun)
 Vec2I Rendering::Window::Size() const
 {
     return config.Resolution.Get();
+}
+
+void Rendering::Window::TryResize()
+{
+    CHECK_RETURN(pendingSize == config.Resolution.Get())
+    Context::Get().Poll(true);
+    config.Resolution = pendingSize;
+    Context::Get().ConfigureWindowSurface(*this);
+}
+
+void Rendering::Window::RequestResize(const int width, const int height)
+{
+    pendingSize = Vec2I::Max({ width, height }, {1, 1});
 }

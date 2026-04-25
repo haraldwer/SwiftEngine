@@ -58,7 +58,7 @@ namespace Rendering
         BufferGroup& GetGroup(int InSlot);
         PipelineLayout* GetLayout();
         void Clear();
-        void Bind(const WGPURenderPassEncoder& InEncoder) const;
+        bool Bind(const WGPURenderPassEncoder& InEncoder) const;
 
     private:
         Vector<BufferGroup> groups;
