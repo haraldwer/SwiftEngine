@@ -23,7 +23,6 @@
 #define NOGDI            
 #define NOKERNEL         
 #define NOUSER           
-#define NONLS            
 #define NOMB             
 #define NOMEMMGR         
 #define NOMETAFILE       

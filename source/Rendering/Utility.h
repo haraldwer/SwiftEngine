@@ -3,6 +3,7 @@
 
 namespace Rendering
 {
-    const char* ToStr(const WGPUStringView & InStr);
+    String ToStr(const WGPUStringView& InStr);
     WGPUStringView ToStr(const String& InStr);
+    WGPUStringView ToStr(const char* InStr);
 }

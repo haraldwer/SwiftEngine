@@ -2,14 +2,23 @@
 
 #include "webgpu/webgpu.h"
 
-const char *Rendering::ToStr(const WGPUStringView &InStr)
+String Rendering::ToStr(const WGPUStringView& InStr)
 {
     if (InStr.data)
-        return InStr.data;
-    return "";
+        return String(InStr.data, InStr.length);
+    return {};
 }
 
-WGPUStringView Rendering::ToStr(const String &InStr)
+WGPUStringView Rendering::ToStr(const String& InStr)
 {
-    return WGPUStringView(InStr.c_str(), InStr.length());
+    // Keep strings around! Slight memory leak
+    static Map<String, String*> persistence;
+    String* ptr = persistence[InStr];
+    if (!ptr) ptr = new String(InStr);
+    return WGPUStringView(ptr->data(), ptr->length());
+}
+
+WGPUStringView Rendering::ToStr(const char* InStr)
+{
+    return WGPUStringView(InStr, WGPU_STRLEN);
 }
